@@ -1,0 +1,495 @@
+NOTE: This is a text extraction from the PDF appendix. It may contain OCR/layout errors and is not build-ready.
+Please compare it with the original source project before compiling or publishing as production code.
+
+Annexes:
+mpu6500.c :
+
+#include<main.h>
+#include <math.h>
+#include <mpu6500.h>
+#include <string.h>
+float velocity = 0;
+volatile float acc_total = 0;
+extern I2C_HandleTypeDef hi2c1;
+extern UART_HandleTypeDef huart1;
+
+
+void mpu6500_init()
+{
+       HAL_StatusTypeDef ret = HAL_I2C_IsDeviceReady (&hi2c1, (mpu6500_I2C_ADDR
+<< 1 )+ 0,1,100);
+        if (HAL_OK== ret)
+        {
+               printf (" device connected\n");
+
+
+        }
+        else
+        {
+               printf(" check cabels \n");
+        }
+        uint8_t temp_data = FS_GYRO_500;
+                                                                                  37
+        ret = HAL_I2C_Mem_Write(&hi2c1, (mpu6500_I2C_ADDR << 1 )+ 0,
+REG_CONFIG_GYRO , 1 ,&temp_data ,1, 100);
+        if (HAL_OK== ret)
+                {
+                         printf ("configuration gyroscop        \n");
+
+
+                }
+                else
+                {
+                         printf(" failed configuration gyroscop \n");
+
+
+                }
+       temp_data = FS_ACC_4G ;
+                ret = HAL_I2C_Mem_Write(&hi2c1, (mpu6500_I2C_ADDR << 1 )+ 0,
+REG_CONFIG_ACC , 1 ,&temp_data ,1, 100);
+                if (HAL_OK== ret)
+                         {
+                                    printf ("configuration accelerometre \n");
+
+
+                         }
+                         else
+                         {
+                                    printf(" failed configuration accelerometre     \n");
+                         }
+               temp_data = 0;
+                    ret = HAL_I2C_Mem_Write(&hi2c1, (mpu6500_I2C_ADDR << 1 )+ 0,
+REG_USR_CTRL   , 1 ,&temp_data ,1, 100);
+                       if (HAL_OK== ret)
+                                {
+                                        printf ("EXIt from sleep mode \n");
+
+
+                                }
+                                    else
+                                {
+                                    printf(" Failed exiting from sleep mode \n");
+                                    }
+
+
+}
+
+
+
+                                                                                            38
+mpu6050_read_and_detect_fall()
+{
+    uint8_t raw_data[6];
+    int16_t acc_x_raw, acc_y_raw, acc_z_raw;
+    float acc_x, acc_y, acc_z;
+    float acc_xy;
+    static uint32_t last_check_time = 0;
+    static float last_acc_total = 0;
+
+
+    // Lire les données brutes des 3 axes d'accéléromètre (6 octets)
+    HAL_I2C_Mem_Read(&hi2c1, (mpu6500_I2C_ADDR << 1 )+ 1,    REG_DATA , 1,raw_data,
+6, 100);
+
+
+    acc_x_raw = (int16_t)(raw_data[0] << 8 | raw_data[1]);
+    acc_y_raw = (int16_t)(raw_data[2] << 8 | raw_data[3]);
+    acc_z_raw = (int16_t)(raw_data[4] << 8 | raw_data[5]);
+
+
+    // Conversion en g (sensibilité = 16384 LSB/g pour ±2g)
+    acc_x = acc_x_raw / 16384.0f;
+    acc_y = acc_y_raw / 16384.0f;
+    acc_z = acc_z_raw / 16384.0f;
+
+
+
+
+    acc_xy = sqrtf(acc_x * acc_x + acc_y * acc_y);
+    acc_total = sqrtf(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z);
+
+
+    printf("Acc X: %.2f g, Y: %.2f g, Z: %.2f g | XY: %.2f g, Total: %.2f g\n",
+acc_x, acc_y, acc_z, acc_xy, acc_total);
+
+
+    // Vérification du premier seuil : accXY > 2g
+    if (acc_xy > 0.1f)
+    {
+        uint32_t t_start = HAL_GetTick();
+        HAL_Delay(100);    // Attendre 300 ms
+
+
+        // Lire de nouveau après 500ms pour calculer la vitesse
+        HAL_I2C_Mem_Read(&hi2c1, (mpu6500_I2C_ADDR << 1 )+ 1,   REG_DATA ,
+1,raw_data, 6, 100);
+
+                                                                                  39
+          acc_x_raw = (int16_t)(raw_data[0] << 8 | raw_data[1]);
+          acc_y_raw = (int16_t)(raw_data[2] << 8 | raw_data[3]);
+          acc_z_raw = (int16_t)(raw_data[4] << 8 | raw_data[5]);
+
+
+          acc_x = acc_x_raw / 16384.0f;
+          acc_y = acc_y_raw / 16384.0f;
+          acc_z = acc_z_raw / 16384.0f;
+
+
+          float acc_total_new = sqrtf(acc_x * acc_x + acc_y * acc_y + acc_z *
+acc_z);
+
+
+          // Vitesse approximative = delta_acc * delta_t
+          float delta_acc = fabsf(acc_total_new - acc_total);
+          float delta_t = 0.1f; // 500 ms
+              velocity = delta_acc * 9.81f * delta_t; // (m/s² * s = m/s)
+
+
+          // Seuil 2 : vitesse > 0.7 m/s
+          // Seuil 3 : acc_total > 6g
+          if (velocity > 0.7f || acc_total_new > 1.5f)
+          {
+                    printf(" CHUTE DETECTEE !\n");
+                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);   // Activer
+buzzer
+                    HAL_Delay(2000);
+                    // Envoi message à Arduino via UART
+                            char msg[] = "FALL\n";
+                            HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg),
+HAL_MAX_DELAY);
+
+
+                            HAL_Delay(2000);
+                    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // Désactiver
+buzzer
+
+
+
+
+                }
+
+
+          }
+          else
+
+                                                                                          40
+        {
+            printf("Pas de chute.\n");
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // Buzzer éteint
+        }
+    }
+
+
+mpu6500.h:
+
+
+#ifndef INC_mpu6500_H_
+#define INC_mpu6500_H_
+
+
+
+
+// Adresse I2C du MPU6500 (AD0 = GND)
+#define mpu6500_I2C_ADDR              0x68   // <<1 pour STM32 HAL (7 bits + 1 bit R/W)
+
+
+// Registres principaux
+#define FS_GYRO_250        0
+#define FS_GYRO_500        8
+#define FS_GYRO_1000 9
+#define FS_GYRO_2000       10
+
+
+// Registres Accéléromètre
+#define FS_ACC_2G      0
+#define FS_ACC_4G      8
+#define FS_ACC_8G      9
+#define FS_ACC_16G         10
+
+
+// Registres Gyroscope
+#define REG_CONFIG_GYRO 27
+#define REG_CONFIG_ACC 28
+#define REG_USR_CTRL            107
+#define REG_DATA                59
+
+
+void mpu6500_Init();
+void mpu6500_read();
+
+
+
+
+#endif /* INC_MPU6500_H_ *
+
+
+                                                                                          41
+Main.c:
+
+#include "main.h"
+
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "string.h"
+#include <stdio.h>
+#include "mpu6500.h"
+/* USER CODE END Includes */
+
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+
+
+
+/* USER CODE END PTD */
+
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+
+/* USER CODE END PD */
+
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+
+/* USER CODE END PM */
+
+
+/* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
+
+UART_HandleTypeDef huart1;
+
+
+/* USER CODE BEGIN PV */
+
+
+/* USER CODE END PV */
+
+                                                                                   42
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_USART1_UART_Init(void);
+/* USER CODE BEGIN PFP */
+
+
+/* USER CODE END PFP */
+
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+void send_char(char c) {
+         HAL_UART_Transmit(&huart1, (uint8_t *)&c, 1, HAL_MAX_DELAY);
+}
+
+
+void send_string(char *str) {
+         HAL_UART_Transmit(&huart1, (uint8_t *)str, strlen(str), HAL_MAX_DELAY);
+}
+
+
+/* USER CODE END 0 */
+
+
+/**
+    * @brief    The application entry point.
+    * @retval int
+    */
+int main(void)
+{
+
+
+    /* USER CODE BEGIN 1 */
+
+
+    /* USER CODE END 1 */
+
+
+    /* MCU Configuration--------------------------------------------------------*/
+
+
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
+
+
+    /* USER CODE BEGIN Init */
+
+                                                                                     43
+/* USER CODE END Init */
+
+
+/* Configure the system clock */
+SystemClock_Config();
+
+
+/* USER CODE BEGIN SysInit */
+
+
+/* USER CODE END SysInit */
+
+
+/* Initialize all configured peripherals */
+MX_GPIO_Init();
+MX_I2C1_Init();
+MX_USART1_UART_Init();
+/* USER CODE BEGIN 2 */
+HAL_Delay(3000); // Laisse le temps au SIM808 de démarrer
+
+
+mpu6500_init();
+
+
+
+
+/* USER CODE END 2 */
+
+
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+while (1)
+{
+        send_char('F');    // envoie 'F' pour chute détectée
+        HAL_Delay(2000);
+        mpu6050_read_and_detect_fall();
+        HAL_Delay(100);
+
+
+
+
+    /* USER CODE END WHILE */
+
+
+    /* USER CODE BEGIN 3 */
+}
+/* USER CODE END 3 */
+
+                                                               44
+}
+
+
+/**
+    * @brief System Clock Configuration
+    * @retval None
+    */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+
+    /** Configure the main internal regulator output voltage
+    */
+    if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+    {
+         Error_Handler();
+    }
+
+
+    /** Initializes the RCC Oscillators according to the specified parameters
+    * in the RCC_OscInitTypeDef structure.
+    */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+    RCC_OscInitStruct.PLL.PLLM = 1;
+    RCC_OscInitStruct.PLL.PLLN = 10;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
+    RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+    RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+         Error_Handler();
+    }
+
+
+    /** Initializes the CPU, AHB and APB buses clocks
+    */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+
+                                                                                   45
+                                  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+    {
+         Error_Handler();
+    }
+}
+
+
+/**
+    * @brief I2C1 Initialization Function
+    * @param None
+    * @retval None
+    */
+static void MX_I2C1_Init(void)
+{
+
+
+    /* USER CODE BEGIN I2C1_Init 0 */
+
+
+    /* USER CODE END I2C1_Init 0 */
+
+
+    /* USER CODE BEGIN I2C1_Init 1 */
+
+
+    /* USER CODE END I2C1_Init 1 */
+    hi2c1.Instance = I2C1;
+    hi2c1.Init.Timing = 0x10D19CE4;
+    hi2c1.Init.OwnAddress1 = 0;
+    hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    hi2c1.Init.OwnAddress2 = 0;
+    hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+    if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+    {
+         Error_Handler();
+
+                                                                              46
+     }
+
+
+     /** Configure Analogue filter
+     */
+     if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+     {
+          Error_Handler();
+     }
+
+
+     /** Configure Digital filter
+     */
+     if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+     {
+          Error_Handler();
+     }
+     /* USER CODE BEGIN I2C1_Init 2 */
+
+
+     /* USER CODE END I2C1_Init 2 */
+
+
+}
+
+
+Arduino :
+
+#include <DFRobot_SIM808.h
