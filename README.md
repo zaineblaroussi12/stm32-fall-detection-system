@@ -1,25 +1,48 @@
-# Fall Detection System for Older Adults — STM32
+## Project Overview
 
-Academic embedded-systems project (2024–2025) using an STM32L4 Discovery board and an MPU6500 inertial sensor, with a SIM808 GSM/GPS module and buzzer for alerting. The report describes a threshold-based detection sequence using acceleration/free-fall, impact and inactivity criteria, followed by an SMS alert with location information.
+This project implements an embedded fall detection system using inertial motion sensing and threshold-based detection. When a potential fall is detected, the system uses a buzzer for local alerts and a SIM808 module for GSM/GPS-based communication and location information.
 
-## Contents
+## Key Features
 
-* Project documentation and figures from the original report.
-* STM32 fall detection system based on motion sensing and threshold-based detection.
-* MPU6500 inertial sensor and SIM808 GSM/GPS module.
-* Embedded C/C++ project with no Python package requirements.
+* Motion monitoring using the MPU6500 inertial sensor.
+* Multi-threshold fall detection algorithm.
+* Audible alerts using a buzzer.
+* GSM communication using the SIM808 module.
+* GPS-based location information.
+* Embedded system design combining sensing, processing, and alerting.
 
+## Hardware Components
 
-## Build status / limitations
+* STM32 microcontroller development board
+* MPU6500 inertial measurement sensor
+* SIM808 GSM/GPS module
+* Buzzer
+* Connecting wires and supporting electronic components
 
-The report appendix is not a complete standalone source project. It references files and symbols such as `main.h`, `mpu6500.h`, STM32 HAL handles, and SIM808 libraries that are not all included in the PDF. Therefore the extracted code is **not guaranteed to compile**. Add the original STM32CubeIDE project, generated HAL files, header files and configuration before claiming a reproducible build.
+## Technologies
 
-The report mentions both STM32L4 Discovery and Arduino Mega 2560 in different parts. Their exact roles in the final prototype should be clarified in the README before publication.
+* Embedded C/C++
+* STM32 development environment
+* STM32 Hardware Abstraction Layer (HAL)
+* I²C communication for sensor interfacing
+* UART communication for module interfacing
+* GSM/GPS communication
 
-## Suggested software environment
+*Note: Confirm that each interface and component listed above matches the final hardware implementation before publishing.*
 
-- STM32CubeIDE / STM32CubeMX
-- STM32 HAL drivers generated for the target board
-- MPU6500 driver and SIM808/GSM-GPS integration code from the original project
+## How It Works
 
-Do not publish SIM PINs, phone numbers, API credentials or other private configuration values.
+1. The MPU6500 measures motion and orientation data.
+2. The microcontroller processes the sensor measurements.
+3. A multi-threshold algorithm evaluates whether a potential fall has occurred.
+4. The buzzer provides a local alert.
+5. The SIM808 module supports communication and location reporting.
+
+## Future Improvements
+
+* Complete and verify the standalone firmware project.
+* Calibrate detection thresholds to reduce false positives.
+* Validate the system under different movement conditions.
+* Improve power management and system reliability.
+* Add test results and documented detection accuracy.
+* Provide a complete hardware configuration and setup guide.
