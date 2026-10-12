@@ -4,9 +4,11 @@ Academic embedded-systems project (2024–2025) using an STM32L4 Discovery board
 
 ## Contents
 
-- `docs/images/`: selected flowcharts, boards/modules, prototype and report figures.
-- `source-extracts/`: source excerpts transcribed from the report appendix, provided for reference only.
-- `requirements.txt`: included on request; the project is embedded C and has no pip requirements.
+* Project documentation and figures from the original report.
+* STM32 fall detection system based on motion sensing and threshold-based detection.
+* MPU6500 inertial sensor and SIM808 GSM/GPS module.
+* Embedded C/C++ project with no Python package requirements.
+
 
 ## Build status / limitations
 
