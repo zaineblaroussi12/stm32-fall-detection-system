@@ -1,0 +1,3 @@
+# This is an embedded C / STM32CubeIDE project.
+# No Python packages are specified by the report.
+# Build dependencies are provided by STM32CubeIDE / STM32CubeMX and the STM32 HAL.

@@ -1,0 +1,38 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+secrets/
+credentials*
+config.local.*
+
+# Build / generated files
+build/
+dist/
+out/
+*.o
+*.elf
+*.hex
+*.bin
+*.map
+*.d
+
+# STM32CubeIDE / CubeMX
+Debug/
+Release/
+.settings/
+.project
+.cproject
+.mxproject
+.metadata/
+*.launch
+*.ioc.bak
